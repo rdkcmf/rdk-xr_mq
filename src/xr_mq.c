@@ -163,12 +163,12 @@ bool xr_mq_push(xr_mq_t mq, const void *msg, xr_mq_msg_size_t msg_size) {
     memcpy(&msgq->msg_queue[(msgq->msg_index_push * msgq->max_msg_size) + sizeof(xr_mq_msg_size_t)], msg, msg_size); // Copy message
     if(sizeof(num_msg) != write(msgq->fd, (void *)&num_msg, sizeof(num_msg))) { // Write to pipe to signify a message has been added
         XLOGD_ERROR("failed to write to eventfd");
-        pthread_mutex_unlock(&msgq->mq_mutex);
+        pthread_mutex_unlock(&node->mq.mq_mutex);
         return(false);
     }
     msgq->msg_used++;
     msgq->msg_index_push = (msgq->msg_index_push + 1) % msgq->max_msg;
-    pthread_mutex_unlock(&msgq->mq_mutex);
+    pthread_mutex_unlock(&node->mq.mq_mutex);
     return(true);
 }
 
@@ -215,7 +215,7 @@ xr_mq_msg_size_t xr_mq_pop(xr_mq_t mq, void *msg, xr_mq_msg_size_t msg_size) {
     memcpy(msg, &msgq->msg_queue[(msgq->msg_index_pop * msgq->max_msg_size) + sizeof(xr_mq_msg_size_t)], ret); // Copy message
     if(sizeof(num_msg) != read(msgq->fd, &num_msg, sizeof(num_msg))) {
         XLOGD_ERROR("failed to read from eventfd");
-        pthread_mutex_unlock(&msgq->mq_mutex);
+        pthread_mutex_unlock(&node->mq.mq_mutex);
         return(0);
     }
     msgq->msg_used--;
@@ -226,7 +226,7 @@ xr_mq_msg_size_t xr_mq_pop(xr_mq_t mq, void *msg, xr_mq_msg_size_t msg_size) {
             XLOGD_ERROR("failed to write to eventfd");
         }
     }
-    pthread_mutex_unlock(&msgq->mq_mutex);
+    pthread_mutex_unlock(&node->mq.mq_mutex);
     return(ret);
 }
 
@@ -260,6 +260,7 @@ void xr_mq_destroy(xr_mq_t mq) {
     }
     g_mq_list.mq_count--;
     close(node->mq.fd);
+    pthread_mutex_unlock(&node->mq.mq_mutex);
     pthread_mutex_destroy(&node->mq.mq_mutex);
     free(node->mq.msg_queue);
     free(node);
